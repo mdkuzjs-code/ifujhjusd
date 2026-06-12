@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>⚡ Game Launcher ⚡</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            background: linear-gradient(135deg, #08080a 0%, #0f0f15 100%); 
+            color: #fff; font-family: 'Segoe UI', sans-serif; 
+            padding: 20px; margin: 0; 
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; color: #00ff88; font-size: 32px; letter-spacing: 1px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(0,255,136,0.3); }
+        p.subtitle { text-align: center; color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
+
+        .search-container { max-width: 500px; margin: 0 auto 20px auto; display: flex; gap: 10px; }
+        .search-input { flex: 1; background: #111116; border: 1px solid #222; padding: 12px 20px; border-radius: 30px; color: #fff; font-size: 16px; outline: none; }
+        .search-input:focus { border-color: #00ff88; box-shadow: 0 0 15px rgba(0,255,136,0.2); }
+
+        .filter-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn { background: #111116; color: #888; border: 1px solid #222; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .filter-btn.active, .filter-btn:hover { background: #00ff88; color: #000; border-color: #00ff88; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: #111116; border: 1px solid #1f1f26; border-radius: 12px; overflow: hidden; transition: 0.25s; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; }
+        .card:hover { transform: translateY(-3px); border-color: #00ff88; box-shadow: 0 8px 25px rgba(0, 255, 136, 0.15); }
+        .card h3 { font-size: 16px; margin: 0 0 10px 0; color: #eee; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+        .tag { background: rgba(0, 255, 136, 0.08); color: #00ff88; padding: 4px 10px; border-radius: 6px; font-size: 11px; border: 1px solid rgba(0,255,136,0.15); font-weight: 600; }
+
+        .btn { 
+            background: #00ff88; color: #000; border: none; padding: 10px 20px; 
+            font-weight: bold; border-radius: 6px; cursor: pointer; text-decoration: none; 
+            transition: 0.2s; font-size: 13px; text-align: center; width: 100%;
+        }
+        .btn:hover { background: #fff; transform: scale(1.03); }
+
+        .card-media { width: 100%; height: 160px; overflow: hidden; border-radius: 8px; margin-bottom: 12px; background: #0b0b0f; display:flex; align-items:center; justify-content:center; }
+        .card-media img { width: 100%; height: 100%; object-fit: cover; display:block; }
+        .card-body { display:flex; flex-direction:column; gap:12px; }
+
+        .load-more-container { text-align: center; margin-top: 40px; }
+        .load-more-btn { background: none; border: 2px solid #00ff88; color: #00ff88; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; display: none; }
+        .load-more-btn:hover { background: #00ff88; color: #000; }
+
+        .error-box { max-width: 500px; margin: 20px auto; padding: 15px; background: rgba(255,68,68,0.1); border: 1px solid #ff4444; border-radius: 8px; color: #ff6666; font-size: 14px; display: none; }
+        .stats { text-align: center; color: #444; font-size: 12px; margin-bottom: 20px; }
+        
+        #gamepadDebug {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-family: monospace;
+            max-width: 300px;
+            z-index: 9999;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        #gamepadDebug.connected { border-color: #00ff88; background: rgba(0, 136, 68, 0.15); }
+        #gamepadDebug.disconnected { border-color: #888; color: #888; background: rgba(0,0,0,0.5); }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 24px; }
+            .grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+            #gamepadDebug { font-size: 9px; padding: 8px; bottom: 5px; right: 5px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>⚡ GAME LAUNCHER ⚡</h1>
+        <p class="subtitle">Торрент-база с быстрым доступом</p>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="Поиск игры..." oninput="handleSearch()">
+        </div>
+
+        <div class="filter-bar">
+            <button class="filter-btn active" onclick="filterGames('all', this)">Все</button>
+            <button class="filter-btn" onclick="filterGames('heavy', this)">Тяжелые (>50GB)</button>
+            <button class="filter-btn" onclick="filterGames('light', this)">Легкие (<50GB)</button>
+        </div>
+
+        <div id="stats" class="stats">Загрузка базы...</div>
+        <div id="errorLog" class="error-box"></div>
+        <div class="grid" id="catalog"></div>
+
+        <div class="load-more-container">
+            <button id="loadMoreBtn" class="load-more-btn" onclick="renderNextChunk()">Показать еще</button>
+        </div>
+    </div>
+
+    <!-- Отладка геймпада -->
+    <div id="gamepadDebug" class="disconnected">
+        Джойстик: не подключен
+    </div>
+
+    <script>
+        const DATABASE_URL = 'games.json';
+        
+        let allGames = [];
+        let filteredGames = [];
+        let currentIndex = 0;
+        let currentFilter = 'all';
+        let selectedCardIndex = 0;
+        let focusArea = 'cards'; // 'search' | 'filters' | 'cards'
+        let filterFocusIndex = 0;
+        let gamepadConnected = false;
+        let gamepadLastTime = 0;
+        const CHUNK_SIZE = 60;
+        const GAMEPAD_POLL_INTERVAL = 50; // мс
+        const STICK_DEADZONE = 0.3;
+        const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#0b0b0f"/><text x="50%" y="50%" fill="#00ff88" font-size="32" font-family="Segoe UI, Roboto, sans-serif" text-anchor="middle" dominant-baseline="middle">No Cover</text></svg>`;
+        const PLACEHOLDER_COVER = 'data:image/svg+xml;utf8,' + encodeURIComponent(PLACEHOLDER_SVG);
+
+        // ===== ИНИЦИАЛИЗАЦИЯ =====
+        window.addEventListener('load', () => {
+            loadGames();
+            setupGamepadListener();
+        });
+
+        // ===== ЗАГРУЗКА ИГР =====
+        function loadGames() {
+            fetch(DATABASE_URL)
+                .then(r => r.json())
+                .then(data => {
+                    allGames = (data.downloads || data).filter(g => g && g.title);
+                    document.getElementById('stats').innerText = `Всего игр: ${allGames.length}`;
+                    filteredGames = [...allGames];
+                    applyFilterAndSearch();
+                })
+                .catch(err => {
+                    document.getElementById('errorLog').style.display = 'block';
+                    document.getElementById('errorLog').innerText = `Ошибка: ${err.message}`;
+                });
+        }
+
+        function applyFilterAndSearch() {
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            filteredGames = allGames.filter(game => {
+                if (!game.title.toLowerCase().includes(search)) return false;
+                
+                const size = parseFloat(game.fileSize) || 0;
+                if (currentFilter === 'heavy') return size >= 50;
+                if (currentFilter === 'light') return size < 50;
+                return true;
+            });
+
+            currentIndex = 0;
+            selectedCardIndex = 0;
+            focusArea = 'cards';
+            filterFocusIndex = 0;
+            renderNextChunk(true);
+        }
+
+        function renderNextChunk(clearOld = false) {
+            const catalog = document.getElementById('catalog');
+            if (clearOld) catalog.innerHTML = '';
+
+            const chunk = filteredGames.slice(currentIndex, currentIndex + CHUNK_SIZE);
+            
+            chunk.forEach((game, idx) => {
+                if (!game.uris || !game.uris.length) return;
+                
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.setAttribute('data-index', currentIndex + idx);
+                const coverSrc = game.cover ? game.cover : PLACEHOLDER_COVER;
+
+                // build DOM nodes to avoid HTML injection and broken attributes (SVG data URIs contain quotes)
+                const media = document.createElement('div');
+                media.className = 'card-media';
+                const img = document.createElement('img');
+                img.src = coverSrc;
+                img.alt = `${game.title} cover`;
+                media.appendChild(img);
+
+                const body = document.createElement('div');
+                body.className = 'card-body';
+
+                const titleEl = document.createElement('h3');
+                titleEl.textContent = game.title;
+
+                const tagsDiv = document.createElement('div');
+                tagsDiv.className = 'tags';
+                const tagSpan = document.createElement('span');
+                tagSpan.className = 'tag';
+                tagSpan.textContent = game.fileSize || '';
+                tagsDiv.appendChild(tagSpan);
+
+                const link = document.createElement('a');
+                link.href = (game.uris && game.uris[0]) || '#';
+                link.className = 'btn';
+                link.textContent = '⬇ СКАЧАТЬ';
+
+                body.appendChild(titleEl);
+                body.appendChild(tagsDiv);
+                body.appendChild(link);
+
+                card.appendChild(media);
+                card.appendChild(body);
+                catalog.appendChild(card);
+            });
+
+            currentIndex += CHUNK_SIZE;
+            document.getElementById('loadMoreBtn').style.display = 
+                currentIndex < filteredGames.length ? 'inline-block' : 'none';
+            
+            updateCardHighlight();
+        }
+
+        function handleSearch() {
+            applyFilterAndSearch();
+        }
+
+        function filterGames(filter, btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = filter;
+            applyFilterAndSearch();
+        }
+
+        // ===== ГЕЙМПАД =====
+        // Навигация: фокусная модель (search → filters → cards), видимые колонки,
+        // edge-trigger для стиков и debounce для кнопок. Поиск/фильтры доступны.
+        let lastButtonTimestamps = {};
+        const BUTTON_REPEAT_DELAY = 140; // ms
+        let axisXActive = false, axisYActive = false;
+
+        function setupGamepadListener() {
+            window.addEventListener('gamepadconnected', (e) => {
+                console.log('🎮 Джойстик подключен:', e.gamepad.id);
+                gamepadConnected = true;
+                updateGamepadDisplay();
+                pollGamepad();
+            });
+
+            window.addEventListener('gamepaddisconnected', (e) => {
+                console.log('❌ Джойстик отключен');
+                gamepadConnected = false;
+                updateGamepadDisplay();
+            });
+
+            // Первоначальная проверка
+            const gp0 = navigator.getGamepads()[0];
+            if (gp0) {
+                gamepadConnected = true;
+                updateGamepadDisplay();
+                pollGamepad();
+            }
+        }
+
+        function updateGamepadDisplay() {
+            const debug = document.getElementById('gamepadDebug');
+            if (gamepadConnected) {
+                debug.classList.remove('disconnected');
+                debug.classList.add('connected');
+                const gp = navigator.getGamepads()[0];
+                if (gp) {
+                    debug.textContent = `✓ ${gp.id}\nЭкземпляр ${gp.index}`;
+                }
+            } else {
+                debug.classList.remove('connected');
+                debug.classList.add('disconnected');
+                debug.textContent = `Джойстик: не подключен\n(Подключите и перезагрузите)`;
+            }
+        }
+
+        function getVisibleColumns() {
+            const cards = document.querySelectorAll('.card');
+            if (cards.length === 0) return 1;
+            const firstTop = cards[0].getBoundingClientRect().top;
+            let cols = 0;
+            for (let i = 0; i < cards.length; i++) {
+                if (Math.abs(cards[i].getBoundingClientRect().top - firstTop) < 8) cols++;
+                else break;
+            }
+            return Math.max(1, cols);
+        }
+
+        function ensureRenderedForIndex(index) {
+            // подгружаем следующие чанки, пока нужный индекс не окажется в DOM
+            while (index >= Math.min(filteredGames.length, currentIndex) && currentIndex < filteredGames.length) {
+                renderNextChunk();
+            }
+        }
+
+        // Фокусная модель: 'search' | 'filters' | 'cards'
+        function updateCardHighlight() {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => card.style.boxShadow = 'none');
+
+            const searchInput = document.getElementById('searchInput');
+            const filterBtns = document.querySelectorAll('.filter-btn');
+
+            // Сброс header-стилей
+            if (searchInput) searchInput.style.boxShadow = '';
+            filterBtns.forEach(b => b.style.boxShadow = '');
+
+            if (focusArea === 'search') {
+                if (searchInput) {
+                    searchInput.style.boxShadow = '0 0 30px rgba(0,255,136,0.8)';
+                    searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+
+            if (focusArea === 'filters') {
+                const idx = Math.max(0, Math.min(filterFocusIndex, filterBtns.length - 1));
+                if (filterBtns[idx]) {
+                    filterBtns[idx].style.boxShadow = '0 0 30px rgba(0,255,136,0.8)';
+                    // прокрутить верхнюю часть, чтобы показать фильтры/поиск
+                    const topElem = document.querySelector('.search-container') || document.querySelector('.filter-bar');
+                    if (topElem) topElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    filterBtns[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                return;
+            }
+
+            // focusArea === 'cards'
+            const card = cards[selectedCardIndex];
+            if (card) {
+                card.style.boxShadow = '0 0 30px rgba(0,255,136,0.8)';
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                const topElem = document.querySelector('.search-container');
+                if (topElem) topElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function moveSelectionHorizontal(steps) {
+            if (focusArea === 'filters') {
+                const filterBtns = document.querySelectorAll('.filter-btn');
+                filterFocusIndex = (filterFocusIndex + steps + filterBtns.length) % filterBtns.length;
+                updateCardHighlight();
+            } else {
+                moveSelection(steps);
+            }
+        }
+
+        function moveSelectionVertical(rows) {
+            const cols = getVisibleColumns();
+
+            if (focusArea === 'search') {
+                if (rows > 0) {
+                    focusArea = 'filters';
+                    filterFocusIndex = 0;
+                    updateCardHighlight();
+                }
+                return;
+            }
+
+            if (focusArea === 'filters') {
+                if (rows > 0) {
+                    focusArea = 'cards';
+                    // попытаемся поставить курсор в соответствующую колонку
+                    const col = Math.min(getVisibleColumns(), Math.max(1, getVisibleColumns()));
+                    selectedCardIndex = Math.min(filteredGames.length - 1, filterFocusIndex);
+                    ensureRenderedForIndex(selectedCardIndex);
+                    updateCardHighlight();
+                } else if (rows < 0) {
+                    focusArea = 'search';
+                    updateCardHighlight();
+                }
+                return;
+            }
+
+            // focusArea === 'cards'
+            const currentCols = Math.max(1, cols);
+            const currentRow = Math.floor(selectedCardIndex / currentCols);
+            if (rows < 0 && currentRow === 0) {
+                // подняться на фильтры
+                focusArea = 'filters';
+                filterFocusIndex = Math.min(document.querySelectorAll('.filter-btn').length - 1, selectedCardIndex % currentCols);
+                updateCardHighlight();
+                return;
+            }
+
+            moveSelection(rows * currentCols);
+        }
+
+        function moveSelection(offset) {
+            selectedCardIndex = Math.max(0, Math.min(selectedCardIndex + offset, filteredGames.length - 1));
+            ensureRenderedForIndex(selectedCardIndex);
+            updateCardHighlight();
+        }
+
+        function clickSelectedCard() {
+            if (focusArea === 'search') {
+                const search = document.getElementById('searchInput');
+                if (search) search.focus();
+                return;
+            }
+            if (focusArea === 'filters') {
+                const btns = document.querySelectorAll('.filter-btn');
+                const btn = btns[filterFocusIndex];
+                if (btn) btn.click();
+                return;
+            }
+            const cards = document.querySelectorAll('.card');
+            const card = cards[selectedCardIndex];
+            if (card) {
+                const btn = card.querySelector('.btn');
+                if (btn) btn.click();
+            }
+        }
+
+        function pollGamepad() {
+            const now = performance.now();
+            if (now - gamepadLastTime < GAMEPAD_POLL_INTERVAL) {
+                requestAnimationFrame(pollGamepad);
+                return;
+            }
+            gamepadLastTime = now;
+
+            const gamepads = navigator.getGamepads();
+            let anyConnected = false;
+
+            for (let i = 0; i < gamepads.length; i++) {
+                const gp = gamepads[i];
+                if (!gp) continue;
+                anyConnected = true;
+
+                // D-Pad (12-15)
+                if (gp.buttons[12].pressed && (!lastButtonTimestamps[12] || now - lastButtonTimestamps[12] > BUTTON_REPEAT_DELAY)) {
+                    moveSelectionVertical(-1); // ↑
+                    lastButtonTimestamps[12] = now;
+                }
+                if (gp.buttons[13].pressed && (!lastButtonTimestamps[13] || now - lastButtonTimestamps[13] > BUTTON_REPEAT_DELAY)) {
+                    moveSelectionVertical(1); // ↓
+                    lastButtonTimestamps[13] = now;
+                }
+                if (gp.buttons[14].pressed && (!lastButtonTimestamps[14] || now - lastButtonTimestamps[14] > BUTTON_REPEAT_DELAY)) {
+                    moveSelectionHorizontal(-1); // ←
+                    lastButtonTimestamps[14] = now;
+                }
+                if (gp.buttons[15].pressed && (!lastButtonTimestamps[15] || now - lastButtonTimestamps[15] > BUTTON_REPEAT_DELAY)) {
+                    moveSelectionHorizontal(1); // →
+                    lastButtonTimestamps[15] = now;
+                }
+
+                // Left Stick axes - edge trigger
+                const axisX = gp.axes[0];
+                const axisY = gp.axes[1];
+
+                if (Math.abs(axisY) > STICK_DEADZONE) {
+                    if (!axisYActive) {
+                        if (axisY < -STICK_DEADZONE) moveSelectionVertical(-1);
+                        else if (axisY > STICK_DEADZONE) moveSelectionVertical(1);
+                        axisYActive = true;
+                    }
+                } else {
+                    axisYActive = false;
+                }
+
+                if (Math.abs(axisX) > STICK_DEADZONE) {
+                    if (!axisXActive) {
+                        if (axisX < -STICK_DEADZONE) moveSelectionHorizontal(-1);
+                        else if (axisX > STICK_DEADZONE) moveSelectionHorizontal(1);
+                        axisXActive = true;
+                    }
+                } else {
+                    axisXActive = false;
+                }
+
+                // actions (A/Y)
+                if (gp.buttons[0].pressed && (!lastButtonTimestamps[0] || now - lastButtonTimestamps[0] > BUTTON_REPEAT_DELAY)) {
+                    clickSelectedCard(); // A
+                    lastButtonTimestamps[0] = now;
+                }
+                if (gp.buttons[3].pressed && (!lastButtonTimestamps[3] || now - lastButtonTimestamps[3] > BUTTON_REPEAT_DELAY)) {
+                    clickSelectedCard(); // Y
+                    lastButtonTimestamps[3] = now;
+                }
+
+                // LB/RB quick filter cycling
+                if (gp.buttons[4].pressed && (!lastButtonTimestamps[4] || now - lastButtonTimestamps[4] > BUTTON_REPEAT_DELAY)) {
+                    changeFilter(-1); // LB
+                    lastButtonTimestamps[4] = now;
+                }
+                if (gp.buttons[5].pressed && (!lastButtonTimestamps[5] || now - lastButtonTimestamps[5] > BUTTON_REPEAT_DELAY)) {
+                    changeFilter(1); // RB
+                    lastButtonTimestamps[5] = now;
+                }
+
+                if (gp.buttons[6].pressed && (!lastButtonTimestamps[6] || now - lastButtonTimestamps[6] > BUTTON_REPEAT_DELAY)) {
+                    scrollUp(); // LT
+                    lastButtonTimestamps[6] = now;
+                }
+                if (gp.buttons[7].pressed && (!lastButtonTimestamps[7] || now - lastButtonTimestamps[7] > BUTTON_REPEAT_DELAY)) {
+                    scrollDown(); // RT
+                    lastButtonTimestamps[7] = now;
+                }
+
+                updateGamepadDisplay();
+            }
+
+            if (gamepadConnected || anyConnected) {
+                requestAnimationFrame(pollGamepad);
+            }
+        }
+
+        function changeFilter(offset) {
+            const filters = ['all', 'heavy', 'light'];
+            const idx = filters.indexOf(currentFilter);
+            const newIdx = (idx + offset + filters.length) % filters.length;
+            const btn = document.querySelectorAll('.filter-btn')[newIdx];
+            filterGames(filters[newIdx], btn);
+        }
+
+        function scrollUp() {
+            window.scrollBy({ top: -300, behavior: 'smooth' });
+        }
+
+        function scrollDown() {
+            window.scrollBy({ top: 300, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
+</body>
+</html>
